@@ -16,7 +16,9 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
-  User,
+    User,
+  Volume2,
+  VolumeX,
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -27,8 +29,8 @@ import type {
   ValidationReport,
 } from '../../../domain/legal/types';
 import { MarkdownRenderer } from './MarkdownRenderer';
-
-// ─── Iconos ──────────────────────────────────────────────────────────────────
+import { useTextToSpeech } from '../../../application/legal/use-cases/useSpeech';
+// ─── Icons ───────────────────────────────────────────────────────────────────
 
 function BotIcon() {
   return (
@@ -46,7 +48,7 @@ function UserIcon() {
   );
 }
 
-// ─── Insignia de validación ───────────────────────────────────────────────────
+// ─── Validation badge ─────────────────────────────────────────────────────────
 
 function ValidationBadge({ validation }: { validation: ValidationReport }) {
   const map = {
@@ -177,7 +179,7 @@ function SourcesPanel({ apiResponse }: { apiResponse: LegalQueryApiResponse }) {
   );
 }
 
-// ─── Detalles completos desplegables ──────────────────────────────────────────
+// ─── Full details collapsible ─────────────────────────────────────────────────
 
 function FullDetails({
   apiResponse,
@@ -224,7 +226,7 @@ function FullDetails({
   );
 }
 
-// ─── Esqueleto de carga ───────────────────────────────────────────────────────
+// ─── Thinking skeleton ────────────────────────────────────────────────────────
 
 function ThinkingBubble() {
   return (
@@ -241,7 +243,7 @@ function ThinkingBubble() {
   );
 }
 
-// ─── Componente principal del mensaje de chat ─────────────────────────────────
+// ─── Main ChatMessage ─────────────────────────────────────────────────────────
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -252,7 +254,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language }: ChatMessageProps) {
   const isUser = message.role === 'user';
-
+  const { supported: ttsSupported, speaking, speak, stop: stopSpeaking } = useTextToSpeech(); 
   if (!isUser && message.isStreaming === false && message.isLoadingFull && !message.content && !message.streamingContent) {
     return <ThinkingBubble />;
   }
@@ -279,7 +281,7 @@ export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language
     );
   }
 
-  // ── Burbuja de error ─────────────────────────────────────────────
+  // ── Burbuja error ────────────────────────────────────────────────
   if (message.error) {
     return (
       <div className="flex items-start gap-3 px-4 md:px-8">
@@ -295,7 +297,7 @@ export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language
     );
   }
 
-  // ── Burbuja del asistente ────────────────────────────────────────
+  // ── Burbuja asistente ────────────────────────────────────────────
   const apiResp = message.apiResponse;
   const validation = apiResp?.validation;
   const showValidationWarning = validation?.status === 'failed' || validation?.confidence === 'low';
@@ -309,12 +311,12 @@ export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language
       <BotIcon />
       <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-2xl rounded-tl-none px-5 py-4 shadow-sm max-w-[85%] md:max-w-xl lg:max-w-2xl">
 
-        {/* Insignia de validación */}
+        {/* Validation badge */}
         {validation && (
           <div className="mb-3"><ValidationBadge validation={validation} /></div>
         )}
 
-        {/* Alertas de validación */}
+        {/* Validation alerts */}
         {showValidationWarning && validation?.status === 'failed' && (
           <div className="mb-3 flex items-start gap-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-xs text-red-700 dark:text-red-400">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -328,10 +330,10 @@ export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language
           </div>
         )}
 
-        {/* Contenido Markdown */}
+        {/* Markdown content */}
         <MarkdownRenderer content={respText} isStreaming={message.isStreaming} />
 
-        {/* Detalles completos */}
+        {/* Full details */}
         {apiResp && !message.isStreaming && (
           <FullDetails
             apiResponse={apiResp}
@@ -340,7 +342,18 @@ export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language
           />
         )}
 
-        {/* Pie: insignia de caché y marca de tiempo */}
+                {/* Escuchar respuesta (solo español) */}
+        {ttsSupported && language === 'spanish' && respText && !message.isStreaming && (
+          <button
+            type="button"
+            onClick={() => (speaking ? stopSpeaking() : speak(respText))}
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-slate-200 dark:border-gray-700 text-slate-600 dark:text-slate-300 hover:border-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-all"
+            title={speaking ? 'Detener' : 'Escuchar respuesta'}
+          >
+            {speaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            {speaking ? 'Detener' : 'Escuchar'}
+          </button>
+        )}
         <div className="flex items-center justify-between mt-3">
           <div className="flex items-center gap-2">
             {apiResp?.cached && (
@@ -359,7 +372,7 @@ export function ChatMessage({ message, onDownloadPdf, isDownloadingPdf, language
           </span>
         </div>
 
-        {/* Carga de la respuesta completa */}
+        {/* Loading full response */}
         {message.isLoadingFull && apiResp === undefined && (
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-400 dark:text-slate-600">
             <Clock className="w-3.5 h-3.5 animate-spin" />
