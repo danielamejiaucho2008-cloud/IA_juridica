@@ -40,6 +40,7 @@ from context.context_engineering import ContextEngineer
 from database.redis_adapter import redis_adapter
 from modules.chat.services.chat_service import chat_service
 from modules.chat.controllers.chat_routes import router as chat_router
+from modules.speech.controllers.speech_routes import router as speech_router
 
 # ── Módulos de validación y optimización ──────────────────────────────
 from modules.validation.services.response_validator import ResponseValidator, ValidationConfig
@@ -319,6 +320,7 @@ app.add_middleware(
 
 # Registrar rutas de chat persistente
 app.include_router(chat_router)
+app.include_router(speech_router)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
